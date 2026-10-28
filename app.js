@@ -296,8 +296,8 @@
       }
       return;
     }
-    const avoidTolls = /(?:evita|senza)\s+(?:i\s+)?pedaggi|senza\s+autostrade|evita\s+(?:le\s+)?autostrade/.test(text);
-    const routeMatch = text.match(/^(?:naviga(?:\s+(?:verso|a|fino a))?|portami\s+(?:verso|a|fino a)|vai\s+(?:verso|a|fino a)|come arrivo a|guidami a|andiamo a|raggiungi)\s+(.+)$/);
+    const avoidTolls = /(?:evita|evitando|senza)\s+(?:i\s+)?pedaggi|senza\s+autostrade|evita(?:ndo)?\s+(?:le\s+)?autostrade/.test(text);
+    const routeMatch = text.match(/^(?:naviga(?:\s+(?:verso|a|al|alla|allo|ai|agli|alle|in|fino a))?|portami\s+(?:verso|a|al|alla|allo|ai|agli|alle|fino a)|vai\s+(?:verso|a|al|alla|allo|ai|agli|alle|in|fino a)|come arrivo a|guidami\s+(?:a|verso)|andiamo a|raggiungi)\s+(.+)$/);
     if (routeMatch) {
       let destination = routeMatch[1].replace(/\s+(?:evitando i pedaggi|senza pedaggi|senza autostrade|evitando le autostrade)$/,'').trim();
       showVoiceResponse('Apro Google Maps per navigare verso ' + destination + '. Le istruzioni di svolta e l’orario di arrivo saranno annunciati da Maps.', true);
@@ -316,7 +316,7 @@
       setTimeout(() => openMapsSearch('traffico e viabilità vicino a me'), 700);
       return;
     }
-    const nearby = text.match(/^(?:trova|cerca|dov e|dove trovo|portami al|portami alla|c e|ci sono)\s+(.+)$/);
+    const nearby = text.match(/^(?:trova|cerca|dov e|dov'e|dove trovo|portami al|portami alla|c e|c'e|ci sono|mostrami)\s+(.+)$/);
     if (nearby && /(?:benzinaio|benzina|distributore|carburante|stazione di servizio|parcheggio|parcheggi|area di servizio|autogrill|farmacia|ristorante|bar|supermercato|ospedale|pronto soccorso|officina|gommista|colonnina|ricarica elettrica|toilette|bagno|bancomat|stazione|hotel|albergo)/.test(nearby[1])) {
       const query = nearby[1].replace(/\s+(?:piu vicino|vicino a me|nelle vicinanze|qui vicino)$/,'').trim();
       showVoiceResponse('Cerco ' + query + ' vicino a te su Google Maps.', true);
