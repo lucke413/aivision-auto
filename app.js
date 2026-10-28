@@ -312,13 +312,16 @@
 
     // Common driving destinations and quick searches.
     if (/(?:traffico|code in strada|ci sono code|incidente|strada bloccata|strada chiusa|viabilita)/.test(text)) {
-      showVoiceResponse('Apro Google Maps per controllare traffico e viabilità nella zona. Le condizioni aggiornate e le deviazioni sono mostrate da Maps.', true);
-      setTimeout(() => openMapsSearch('traffico e viabilità vicino a me'), 700);
+      const trafficPlaceMatch = text.match(/\b(?:a|ad|in|sulla|sull|sullo|sul)\s+(.+)$/);
+      const trafficPlace = trafficPlaceMatch ? trafficPlaceMatch[1].replace(/\s+(?:oggi|adesso|ora|attualmente|in questo momento)$/,'').trim() : '';
+      const trafficQuery = trafficPlace ? 'traffico e viabilità a ' + trafficPlace : 'traffico e viabilità vicino a me';
+      showVoiceResponse(trafficPlace ? 'Apro Google Maps per controllare traffico e viabilità a ' + trafficPlace + '. Le condizioni aggiornate sono mostrate da Maps.' : 'Apro Google Maps per controllare traffico e viabilità nella zona. Le condizioni aggiornate e le deviazioni sono mostrate da Maps.', true);
+      setTimeout(() => openMapsSearch(trafficQuery), 700);
       return;
     }
     const nearby = text.match(/^(?:trova|cerca|dov e|dov'e|dove trovo|portami al|portami alla|c e|c'e|ci sono|mostrami)\s+(.+)$/);
     if (nearby && /(?:benzinaio|benzina|distributore|carburante|stazione di servizio|parcheggio|parcheggi|area di servizio|autogrill|farmacia|ristorante|bar|supermercato|ospedale|pronto soccorso|officina|gommista|colonnina|ricarica elettrica|toilette|bagno|bancomat|stazione|hotel|albergo)/.test(nearby[1])) {
-      const query = nearby[1].replace(/\s+(?:piu vicino|vicino a me|nelle vicinanze|qui vicino)$/,'').trim();
+      const query = nearby[1].replace(/^(?:il|lo|la|i|gli|le|un|uno|una)\s+/,'').replace(/\s+(?:piu vicin[oa]|vicino a me|nelle vicinanze|qui vicino|vicino)$/,'').trim();
       showVoiceResponse('Cerco ' + query + ' vicino a te su Google Maps.', true);
       setTimeout(() => openMapsSearch(query + ' vicino a me'), 650);
       return;
