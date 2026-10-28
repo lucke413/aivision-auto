@@ -1,4 +1,4 @@
-const CACHE = 'aivision-auto-v01';
+const CACHE = 'aivision-auto-v02';
 const ASSETS = ['./', './index.html', './app.js', './manifest.webmanifest', './icons/icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
