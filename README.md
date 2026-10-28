@@ -37,6 +37,20 @@ Ogni nuovo commit sul ramo main avvierà il workflow di pubblicazione.
 ## Sicurezza
 Configurare la destinazione e testare l'app esclusivamente a veicolo fermo. Durante la marcia evitare di digitare o interagire con lo schermo; dare priorità ai comandi vocali e interrompere l'uso se distrae. Non vengono lette automaticamente notifiche o messaggi. Questa beta non sostituisce il navigatore o i sistemi di sicurezza dell'auto.
 
+
+## Personalità e comandi vocali
+
+AIVision Auto usa risposte colloquiali e leggere, con battute occasionali. I dati reali restano prioritari: l'app non dichiara di aver rilevato traffico o autovelox se non dispone di una fonte che lo confermi. I comandi per autovelox aprono Waze, se disponibile, perché questa beta non riceve direttamente il feed live degli avvisi.
+
+## Modalità offline e sensori
+
+- Ora, data, logica dei comandi locali e preferenze già salvate funzionano senza interrogare un servizio remoto.
+- Dopo avere caricato il meteo online almeno una volta, la PWA salva l'ultima osservazione e la previsione disponibile per la stessa città. Se manca la rete, mostra e legge il dato salvato indicandone chiaramente l'orario: non lo presenta come dato attuale.
+- La PWA non può leggere in modo affidabile tutti i sensori hardware Android. Per accedere in maniera più completa a GPS, bussola, accelerometro e all'eventuale barometro serve una versione nativa Android; i sensori ambientali dipendono dall'hardware del modello di telefono.
+- Un barometro può misurare la pressione e aiutare a osservare tendenze, ma da solo non fornisce previsioni meteorologiche affidabili. Per previsioni, radar, traffico e avvisi aggiornati serve una fonte esterna oppure dati locali scaricati in precedenza.
+- Per una futura app nativa si può usare il riconoscimento vocale on-device quando Android e la lingua italiana installata lo supportano, insieme a un modello linguistico locale per ragionare senza inviare ogni richiesta a un server. L'effettiva velocità dipende dal telefono e dal modello scelto.
+- L'accesso ai parametri della centralina dell'auto (per esempio velocità o temperatura motore, dove disponibile) richiederà un adattatore OBD-II Bluetooth compatibile e autorizzazioni esplicite; non sono dati ottenibili dai normali sensori del telefono.
+
 ## Limiti della beta
 - Non è ancora un modello IA conversazionale: i comandi vocali sono una lista limitata di frasi.
 - Musica e radio si aprono in servizi esterni.
