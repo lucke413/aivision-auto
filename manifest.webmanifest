@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "AIVision Auto",
+  "short_name": "AIVision Auto",
+  "description": "Dashboard mobile con comandi vocali, navigazione, meteo e audio.",
+  "lang": "it-IT",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#071426",
+  "background_color": "#06101e",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
