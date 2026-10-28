@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const STORE = { city: 'aivisionAuto.weatherCity', home: 'aivisionAuto.homeDestination', lastDestination: 'aivisionAuto.lastDestination' };
+  const STORE = { city: 'aivisionAuto.weatherCity', home: 'aivisionAuto.homeDestination', lastDestination: 'aivisionAuto.lastDestination', weatherSnapshot: 'aivisionAuto.weatherSnapshot' };
   let recognition = null;
   let listening = false;
   let toastTimer = null;
@@ -141,6 +141,46 @@
     return map[code] || ['🌤️','condizioni variabili'];
   }
 
+  function readableWeatherTimestamp(value) {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return 'ora non disponibile';
+    return date.toLocaleString('it-IT', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function readSavedWeather(city) {
+    try {
+      const raw = localStorage.getItem(STORE.weatherSnapshot);
+      if (!raw) return null;
+      const snapshot = JSON.parse(raw);
+      if (!snapshot || normalizeSpeech(snapshot.city) !== normalizeSpeech(city)) return null;
+      return snapshot;
+    } catch (_) { return null; }
+  }
+
+  function renderSavedWeather(snapshot, dayOffset = 0) {
+    const when = readableWeatherTimestamp(snapshot.fetchedAt);
+    const stalePrefix = 'Ultimo dato salvato: ' + when + ' · non è in tempo reale';
+    if (dayOffset > 0 && snapshot.daily && snapshot.daily.weather_code && snapshot.daily.weather_code[dayOffset] != null) {
+      const [icon, description] = getWeatherDescription(snapshot.daily.weather_code[dayOffset]);
+      const min = Math.round(snapshot.daily.temperature_2m_min[dayOffset]);
+      const max = Math.round(snapshot.daily.temperature_2m_max[dayOffset]);
+      const rain = snapshot.daily.precipitation_probability_max[dayOffset];
+      const label = dayOffset === 1 ? 'Domani' : 'Dopodomani';
+      $('weatherIcon').textContent = icon;
+      $('temperature').textContent = max + '°';
+      $('weatherDesc').textContent = snapshot.label;
+      $('weatherExtra').textContent = label + ': ' + description + ' · min ' + min + '° · ' + stalePrefix;
+      return { spoken: 'Non riesco a collegarmi, quindi ti do l’ultima previsione salvata. ' + label + ' a ' + snapshot.placeName + ' era previsto ' + description + ', con temperature tra ' + min + ' e ' + max + ' gradi' + (rain == null ? '.' : ' e probabilità di pioggia del ' + rain + ' per cento.') + ' Il dato risale a ' + when + ' e potrebbe essere cambiato.' };
+    }
+    const current = snapshot.current;
+    const [icon, description] = getWeatherDescription(current.weather_code);
+    $('weatherIcon').textContent = icon;
+    $('temperature').textContent = Math.round(current.temperature_2m) + '°';
+    $('weatherDesc').textContent = snapshot.label;
+    $('weatherExtra').textContent = description.charAt(0).toUpperCase() + description.slice(1) + ' · ' + stalePrefix;
+    return { spoken: 'In questo momento sono offline, quindi non ho il meteo aggiornato. L’ultimo dato salvato per ' + snapshot.placeName + ', alle ' + when + ', indicava ' + Math.round(current.temperature_2m) + ' gradi e cielo ' + description + '. È un dato vecchio, non una misura attuale.' };
+  }
+
   async function loadWeather(city, options = {}) {
     const chosen = (city || localStorage.getItem(STORE.city) || '').trim();
     const speakResult = options.speak === true;
@@ -170,6 +210,16 @@
       const label = place.name + (place.admin1 ? ', ' + place.admin1 : '');
       const [currentIcon, currentDesc] = getWeatherDescription(data.current.weather_code);
       localStorage.setItem(STORE.city, chosen);
+      try {
+        localStorage.setItem(STORE.weatherSnapshot, JSON.stringify({
+          city: chosen,
+          placeName: place.name,
+          label,
+          fetchedAt: new Date().toISOString(),
+          current: data.current,
+          daily: data.daily
+        }));
+      } catch (_) { /* Weather cache is a convenience, never block the dashboard */ }
 
       if (dayOffset > 0 && data.daily && data.daily.time && data.daily.time[dayOffset]) {
         const daily = data.daily;
@@ -208,9 +258,17 @@
       if (speakResult) showVoiceResponse(spoken, true);
       return { place, description: currentDesc, temperature: current.temperature_2m, spoken };
     } catch (err) {
+      if (err.message !== 'notfound') {
+        const saved = readSavedWeather(chosen);
+        if (saved) {
+          const fallback = renderSavedWeather(saved, dayOffset);
+          if (speakResult) showVoiceResponse(fallback.spoken, true);
+          return fallback;
+        }
+      }
       const message = err.message === 'notfound'
         ? 'Non trovo la località ' + chosen + '. Prova a pronunciarla di nuovo.'
-        : 'Non riesco a recuperare il meteo adesso. Controlla la connessione e riprova.';
+        : 'Non riesco a recuperare il meteo e non ho dati salvati per ' + chosen + '. Appena torna la rete posso aggiornartelo.';
       $('weatherDesc').textContent = err.message === 'notfound' ? 'Città non trovata' : 'Meteo non disponibile';
       $('weatherExtra').textContent = 'Controlla la connessione e riprova';
       if (speakResult) showVoiceResponse(message, true);
