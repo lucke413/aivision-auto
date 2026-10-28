@@ -5,10 +5,21 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="com.google.android.gms.permission.CAR_SPEED" />
+    <uses-permission android:name="com.google.android.gms.permission.CAR_FUEL" />
     <queries><intent><action android:name="android.speech.RecognitionService" /></intent></queries>
     <application android:allowBackup="true" android:label="AIVision Auto" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false">
+        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
+        <service android:name=".AIVisionCarAppService" android:exported="true" android:label="AIVision Auto">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.WEATHER" />
+                <category android:name="androidx.car.app.category.POI" />
+            </intent-filter>
+            <meta-data android:name="androidx.car.app.minCarApiLevel" android:value="3" />
+        </service>
     </application>
 </manifest>
