@@ -1,6 +1,9 @@
 package it.aivision.auto
 
 import android.Manifest
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
@@ -87,7 +90,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val actions = listOf<Pair<String, () -> Unit>>(
             "Naviga" to { askDestination() }, "Torna a casa" to { if (home.isBlank()) chooseHome() else navigate(home) },
             "Distributori" to { mapsSearch("distributore carburante vicino a me") }, "Parcheggi" to { mapsSearch("parcheggio vicino a me") },
-            "Farmacie" to { mapsSearch("farmacia vicino a me") }, "Cerca sul web" to { askSearch() },
+            "Farmacie" to { mapsSearch("farmacia vicino a me") }, "Dove sono?" to { locateMe() }, "Cerca sul web" to { askSearch() },
             "Imposta Casa" to { chooseHome() }, "Imposta città" to { chooseCity() }
         )
         actions.chunked(2).forEach { pair ->
@@ -217,6 +220,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val destination = raw.replace(Regex("(?i)^(naviga( verso| a)?|portami (a|verso)?|vai a)\\s*"), "").trim()
                 if (destination.isBlank()) askDestination() else { respond("Apro il percorso per $destination. Occhi sulla strada."); navigate(destination) }
             }
+            command.contains("dove sono") || command.contains("mia posizione") || command.contains("dove mi trovo") -> locateMe()
             command.contains("distributore") || command.contains("benzinaio") || command.contains("fare benzina") -> { respond("Cerco un distributore nelle vicinanze."); mapsSearch("distributore carburante vicino a me") }
             command.contains("parcheggio") -> { respond("Cerco parcheggi nelle vicinanze."); mapsSearch("parcheggio vicino a me") }
             command.contains("farmacia") -> { respond("Cerco una farmacia nelle vicinanze."); mapsSearch("farmacia vicino a me") }
@@ -225,6 +229,54 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             command.contains("traffico") -> { respond("Per il traffico aggiornato apro Maps. Offline non posso verificarlo."); mapsSearch("traffico vicino a me") }
             command.contains("autovelox") -> { respond("Per gli avvisi aggiornati apro Waze. Rispetta sempre i limiti."); openUrl("https://waze.com/ul") }
             else -> respond("Ho capito: “$raw”. Per ora gestisco data, ora, meteo, navigazione e ricerche locali. L'IA conversazionale arriverà in una fase successiva.")
+        }
+    }
+
+    private fun locateMe() {
+        val fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!fine && !coarse) {
+            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 42)
+            return
+        }
+        try {
+            val manager = getSystemService(LOCATION_SERVICE) as LocationManager
+            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            val last = providers.mapNotNull { provider ->
+                try { if (manager.isProviderEnabled(provider)) manager.getLastKnownLocation(provider) else null }
+                catch (_: SecurityException) { null }
+            }.maxByOrNull { it.time }
+            if (last != null && System.currentTimeMillis() - last.time < 10 * 60 * 1000) {
+                respond("La posizione salvata indica latitudine ${"%.5f".format(Locale.US, last.latitude)} e longitudine ${"%.5f".format(Locale.US, last.longitude)}. Apro la mappa.")
+                openUrl("https://www.google.com/maps/search/?api=1&query=${last.latitude},${last.longitude}")
+                return
+            }
+            respond("Sto chiedendo una posizione GPS. Se il segnale non è disponibile, prova all'aperto.", false)
+            val listener = object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    try { manager.removeUpdates(this) } catch (_: Exception) {}
+                    respond("Posizione trovata. Apro la mappa.")
+                    openUrl("https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}")
+                }
+                @Deprecated("Deprecated by Android")
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) {}
+            }
+            var requested = false
+            for (provider in providers) {
+                try {
+                    if (manager.isProviderEnabled(provider)) {
+                        manager.requestSingleUpdate(provider, listener, mainLooper)
+                        requested = true
+                    }
+                } catch (_: Exception) {}
+            }
+            if (!requested) respond("Posizione non disponibile. Attiva la posizione del telefono e riprova.")
+        } catch (_: SecurityException) {
+            respond("Permesso posizione non concesso.", false)
+        } catch (_: Exception) {
+            respond("Non riesco a leggere la posizione. Controlla le impostazioni GPS.", false)
         }
     }
 
