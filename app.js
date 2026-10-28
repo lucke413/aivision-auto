@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const STORE = { city: 'aivisionAuto.weatherCity', home: 'aivisionAuto.homeDestination' };
+  const STORE = { city: 'aivisionAuto.weatherCity', home: 'aivisionAuto.homeDestination', lastDestination: 'aivisionAuto.lastDestination' };
   let recognition = null;
   let listening = false;
   let toastTimer = null;
@@ -14,16 +14,55 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 4200);
   }
 
+  function preferredItalianVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+    const italian = voices.filter(voice => /^it(?:-|_)/i.test(voice.lang));
+    if (!italian.length) return null;
+    return italian.find(v => /google.*italian|italiano.*google|microsoft.*elsa|elsa/i.test(v.name))
+      || italian.find(v => v.localService)
+      || italian[0];
+  }
+
   function say(message) {
     try {
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(message);
       utterance.lang = 'it-IT';
-      utterance.rate = 0.94;
-      utterance.pitch = 1;
+      utterance.rate = 0.96;
+      utterance.pitch = 1.02;
+      const voice = preferredItalianVoice();
+      if (voice) utterance.voice = voice;
       window.speechSynthesis.speak(utterance);
     } catch (_) { /* Speech synthesis is optional */ }
+  }
+
+  function pick(options) {
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
+  function openWaze(query = '', destination = '') {
+    const target = (destination || '').trim();
+    if (target) {
+      openExternal('https://waze.com/ul?q=' + encodeURIComponent(target) + '&navigate=yes&utm_source=aivision_auto');
+      return;
+    }
+    const search = (query || '').trim();
+    openExternal(search
+      ? 'https://waze.com/ul?q=' + encodeURIComponent(search) + '&utm_source=aivision_auto'
+      : 'https://waze.com/ul?utm_source=aivision_auto');
+  }
+
+  function friendlyWeatherRemark(code, temperature, wind, precipitation) {
+    if (precipitation > 0 || [51,53,55,56,57,61,63,65,66,67,80,81,82,85,86,95,96,99].includes(code)) {
+      return pick(['Io un ombrello lo porterei, non si sa mai.', 'Insomma, oggi l’ombrello è un buon compagno di viaggio.', 'Se devi scendere dall’auto, preparati: potrebbe bagnarti.']);
+    }
+    if (temperature <= 5) return pick(['Brr, copriti bene: fa freschino.', 'Direi che oggi la giacca non è facoltativa.', 'Fa freddino: meglio non uscire in maniche corte.']);
+    if (temperature >= 29) return pick(['Fa bello caldo: tieni l’acqua a portata.', 'Con questo caldo, aria condizionata con giudizio e acqua a bordo.', 'Oggi si suda anche solo a guardare il termometro.']);
+    if (wind >= 35) return 'C’è anche parecchio vento: occhio quando apri la portiera.';
+    if ([0,1,2].includes(code) && temperature >= 17) return pick(['Direi che non va affatto male.', 'Oh, almeno il meteo ci dà una buona notizia.', 'Giornata niente male, almeno sulla carta.']);
+    return pick(['Ecco il quadro della situazione, senza drammi.', 'Questo è il bollettino: almeno adesso sappiamo come siamo messi.', 'Meglio saperlo prima di uscire, no?']);
   }
 
   function normalizeSpeech(value) {
@@ -70,7 +109,8 @@
       showToast('Pronuncia una destinazione, per esempio: naviga verso Torino.');
       return;
     }
-    let url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(value) + '&travelmode=driving';
+    try { localStorage.setItem(STORE.lastDestination, value); } catch (_) {}
+    let url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(value) + '&travelmode=driving&dir_action=navigate';
     if (avoid) url += '&avoid=' + encodeURIComponent(avoid);
     openExternal(url);
   }
@@ -142,7 +182,12 @@
         const spoken = dayWord + ' a ' + place.name + ' è previsto ' + forecastDesc +
           ', con temperature tra ' + Math.round(daily.temperature_2m_min[dayOffset]) + ' e ' +
           Math.round(daily.temperature_2m_max[dayOffset]) + ' gradi' +
-          (rain == null ? '.' : ' e probabilità di pioggia del ' + rain + ' per cento.');
+          (rain == null ? '.' : ' e probabilità di pioggia del ' + rain + ' per cento.') +
+          (forecastDesc.includes('pioggia') || forecastDesc.includes('rovesci') || forecastDesc.includes('temporale') || forecastDesc.includes('neve')
+            ? ' Io un ombrello lo terrei a portata.'
+            : daily.temperature_2m_max[dayOffset] <= 5 ? ' Meglio vestirsi pesanti.'
+            : daily.temperature_2m_max[dayOffset] >= 28 ? ' Farà caldo: acqua a bordo.'
+            : ' Insomma, adesso sai come organizzarti.');
         if (speakResult) showVoiceResponse(spoken, true);
         return { place, description: forecastDesc, temperature: daily.temperature_2m_max[dayOffset], spoken };
       }
@@ -158,7 +203,8 @@
         Math.round(current.apparent_temperature) + ' gradi, il vento è a ' +
         Math.round(current.wind_speed_10m) + ' chilometri orari e l’umidità è al ' +
         Math.round(current.relative_humidity_2m) + ' per cento.' +
-        (current.precipitation > 0 ? ' Precipitazioni in corso: ' + current.precipitation + ' millimetri.' : '');
+        (current.precipitation > 0 ? ' Precipitazioni in corso: ' + current.precipitation + ' millimetri.' : '') +
+        ' ' + friendlyWeatherRemark(current.weather_code, current.temperature_2m, current.wind_speed_10m, current.precipitation);
       if (speakResult) showVoiceResponse(spoken, true);
       return { place, description: currentDesc, temperature: current.temperature_2m, spoken };
     } catch (err) {
@@ -188,7 +234,7 @@
   }
 
   function helpCommands() {
-    const help = 'Puoi chiedermi: che giorno è oggi; che ore sono; che tempo fa a Novara; che tempo farà domani a Torino; naviga verso casa; trova un benzinaio o un parcheggio vicino; com’è il traffico; cerca ristoranti; apri la musica o la radio.';
+    const help = 'Puoi parlarmi normalmente. Per esempio: che giorno è oggi; che ore sono; che tempo fa a Novara; quanto ci vuole a tornare a casa; c’è traffico?; trova un benzinaio o una farmacia; ci sono autovelox?; naviga verso Torino; apri la musica o la radio. Per gli avvisi di autovelox uso Waze, che può segnalare quelli mappati o riportati dagli utenti se gli avvisi sono attivi.';
     showVoiceResponse(help, true);
   }
 
@@ -285,7 +331,23 @@
     }
 
     // Route requests and route preferences are handed to Google Maps, which provides turn-by-turn speech.
-    const toHome = /^(?:naviga|vai|portami|come arrivo)(?:\s+(?:verso|a|fino a))?\s+casa$/.test(text);
+    const asksEtaHome = /(?:quanto\s+(?:ci\s+vuole|tempo\s+ci\s+vuole|manca)|quando\s+arrivo|a\s+che\s+ora\s+arrivo|tempo\s+di\s+arrivo).*(?:casa|tornare\s+a\s+casa|rientrare\s+a\s+casa)|(?:quanto\s+ci\s+vuole|quanto\s+manca).*(?:per\s+tornare|per\s+rientrare)\s+a\s+casa/.test(text);
+    if (asksEtaHome) {
+      const home = savedHome();
+      if (home) {
+        showVoiceResponse(pick([
+          'Eh, vediamo quanto ci mette Maps a riportarti a casa. Se c’è coda, che due palle… apro il percorso aggiornato.',
+          'Controlliamo il rientro. Speriamo di non trovare una fila infinita di fanali rossi: apro Maps per il tempo stimato.',
+          'Vediamo quanto manca al divano. Apro Maps: è lui che può leggere traffico e orario di arrivo aggiornati.'
+        ]), true);
+        setTimeout(() => navigateTo(home), 1000);
+      } else {
+        showVoiceResponse('Volentieri. Prima però salva l’indirizzo di casa dal pulsante “Salva destinazione Casa”. Poi potrò aprire direttamente il percorso.', true);
+      }
+      return;
+    }
+
+    const toHome = /^(?:naviga|vai|portami|come arrivo|torna|torna|rientra|accompagnami)(?:\s+(?:verso|a|fino a|di nuovo a))?\s+casa$/.test(text);
     if (toHome) {
       const home = savedHome();
       if (home) {
@@ -305,8 +367,8 @@
       return;
     }
     if (/(quanto manca|quanto tempo ci vuole|quando arrivo|a che ora arrivo|tempo di arrivo|orario di arrivo|minuti all arrivo|quanto dista)/.test(text)) {
-      showVoiceResponse('Il tempo residuo e l’orario di arrivo dipendono dal percorso attivo. Apro Google Maps, che può mostrare queste informazioni aggiornate.', true);
-      setTimeout(() => openExternal('https://www.google.com/maps'), 650);
+      showVoiceResponse('Per il tempo preciso devo leggere il percorso attivo, che questa versione non può consultare direttamente. Apro Maps: lì trovi il tempo aggiornato. Se vuoi stimare il rientro, chiedimi “quanto ci vuole per tornare a casa”.', true);
+      setTimeout(() => openExternal('https://www.google.com/maps'), 900);
       return;
     }
 
@@ -315,8 +377,29 @@
       const trafficPlaceMatch = text.match(/\b(?:a|ad|in|sulla|sull|sullo|sul)\s+(.+)$/);
       const trafficPlace = trafficPlaceMatch ? trafficPlaceMatch[1].replace(/\s+(?:oggi|adesso|ora|attualmente|in questo momento)$/,'').trim() : '';
       const trafficQuery = trafficPlace ? 'traffico e viabilità a ' + trafficPlace : 'traffico e viabilità vicino a me';
-      showVoiceResponse(trafficPlace ? 'Apro Google Maps per controllare traffico e viabilità a ' + trafficPlace + '. Le condizioni aggiornate sono mostrate da Maps.' : 'Apro Google Maps per controllare traffico e viabilità nella zona. Le condizioni aggiornate e le deviazioni sono mostrate da Maps.', true);
-      setTimeout(() => openMapsSearch(trafficQuery), 700);
+      const quip = pick([
+        'Eh, il traffico… che due palle. Apro Maps per controllare la situazione e vedere il percorso.',
+        'Vediamo se oggi le strade collaborano. Apro Maps: il traffico aggiornato lo controlliamo lì.',
+        'Speriamo di evitare la sfilata di fanali rossi. Ti apro Maps per controllare la viabilità.'
+      ]);
+      showVoiceResponse((trafficPlace ? 'Controlliamo il traffico a ' + trafficPlace + '. ' : '') + quip, true);
+      setTimeout(() => openMapsSearch(trafficQuery), 950);
+      return;
+    }
+
+    if (/(?:autovelox|velox|tutor|controllo velocita|controlli di velocita|radar di velocita)/.test(text)) {
+      const namedPlace = text.match(/\b(?:a|ad|in|sulla|sul)\s+(.+)$/);
+      const place = namedPlace ? namedPlace[1].replace(/\s+(?:oggi|adesso|ora)$/,'').trim() : '';
+      const destination = savedHome();
+      const answer = place
+        ? 'Vuoi sapere degli autovelox a ' + place + '. Non posso rilevarli direttamente in tempo reale da questa app, quindi apro Waze per gli avvisi disponibili. E occhio al limite: meglio arrivare tranquilli che farsi fotografare.'
+        : 'Occhio agli autovelox: non posso rilevarli direttamente in tempo reale da questa app. Apro Waze per gli avvisi disponibili lungo il percorso; meglio rispettare il limite e arrivare sereni.';
+      showVoiceResponse(answer, true);
+      setTimeout(() => {
+        if (place) openWaze('autovelox ' + place);
+        else if (destination) openWaze('', destination);
+        else openWaze('autovelox vicino a me');
+      }, 1100);
       return;
     }
     const nearby = text.match(/^(?:trova|cerca|dov e|dov'e|dove trovo|portami al|portami alla|c e|c'e|ci sono|mostrami)\s+(.+)$/);
