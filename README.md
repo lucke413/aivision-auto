@@ -6,7 +6,9 @@ Dashboard web installabile (PWA) in italiano, pensata per un telefono Android fi
 - Dashboard ad alto contrasto con orologio e data.
 - Meteo gratuito Open-Meteo, con città scelta dall'utente e senza chiave API.
 - Comandi vocali in italiano basati sul riconoscimento del browser; sintesi vocale quando supportata.
-- Comandi: “naviga verso Torino”, “naviga a casa”, “cerca ristoranti”, “apri la musica”, “apri la radio”, “apri il telefono”, “che ore sono”, “meteo” e “aiuto”.
+- Comandi vocali italiani: data e ora (“che giorno è oggi?”, “che ore sono?”); meteo attuale per città (“che tempo fa a Novara?”) e previsione fino a due giorni; navigazione (“naviga verso Torino”, “portami alla stazione”, “vai a casa”), preferenza per evitare pedaggi/autostrade, controllo del traffico tramite Google Maps e ricerche di luoghi vicini (benzinaio, parcheggio, farmacia, ristorante, area di servizio, ospedale e altri).
+- Domande sul tempo di arrivo aprono Google Maps, che mantiene le informazioni di percorso e le indicazioni vocali; l'app non legge in modo indipendente la sessione di navigazione di Maps.
+- “Dove sono?” può chiedere la posizione del dispositivo e, se autorizzata, usare un servizio di geocodifica per indicare la località.
 - Collegamenti a Google Maps, tastierino telefonico, compositore SMS e servizi audio esterni. Non vengono avviate chiamate né inviati messaggi automaticamente.
 - Salvataggio locale facoltativo della città meteo e della destinazione Casa.
 - Manifest PWA, icona SVG e service worker per memorizzare le risorse essenziali.
