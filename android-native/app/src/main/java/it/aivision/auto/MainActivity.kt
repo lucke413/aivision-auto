@@ -189,14 +189,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun respond(value: String, vocal: Boolean = true) {
         runOnUiThread { response.text = value; if (vocal) speak(value) }
     }
-    private fun startListening() {
+    private fun startListening(forceOnline: Boolean = false, allowOnlineFallback: Boolean = true) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 41); return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) { respond("Servizio vocale non disponibile. Usa i pulsanti sullo schermo."); return }
         stopListening()
         try {
-            val onDevice = Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+            val onDevice = !forceOnline && Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
             recognizer = if (onDevice) SpeechRecognizer.createOnDeviceSpeechRecognizer(this) else SpeechRecognizer.createSpeechRecognizer(this)
             recognizer?.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) { respond(if (onDevice) "Ti ascolto. Riconoscimento sul dispositivo." else "Ti ascolto. Il servizio vocale potrebbe richiedere Internet.", false) }
@@ -205,7 +205,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 override fun onBufferReceived(buffer: ByteArray?) {}
                 override fun onEndOfSpeech() {}
                 override fun onError(error: Int) {
-                    respond("Non sono riuscito a riconoscere la frase. Riprova con una frase breve.", false); stopListening()
+                    stopListening()
+                    if (onDevice && allowOnlineFallback) {
+                        respond("Il riconoscimento locale non è riuscito. Provo automaticamente con il servizio vocale online: ripeti la frase.", false)
+                        startListening(forceOnline = true, allowOnlineFallback = false)
+                    } else {
+                        respond("Non sono riuscito a riconoscere la frase. Riprova con una frase breve.", false)
+                    }
                 }
                 override fun onResults(results: Bundle?) {
                     val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
@@ -220,7 +226,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "it-IT")
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "it-IT")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, !forceOnline)
             }
             recognizer?.startListening(intent)
         } catch (_: Exception) {
