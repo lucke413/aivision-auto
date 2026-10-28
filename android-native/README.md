@@ -12,6 +12,9 @@ Questa cartella contiene il primo progetto Android nativo, separato dalla PWA gi
 - Posizione GPS/rete su richiesta, con permesso Android esplicito e senza tracciamento continuo.
 - Nessun account, chiave API o pagamento obbligatorio.
 
+## Stato della build
+Il codice è stato aggiornato nel branch `android-native-foundation`, ma l'APK va considerato non verificato finché un'esecuzione GitHub Actions non termina con successo e il pacchetto non viene installato e provato sul telefono.
+
 ## APK di prova
 Il workflow GitHub Actions “Build AIVision Auto Android APK” compila l'app e pubblica l'APK debug come artefatto scaricabile per 14 giorni. È installabile per test, ma non è una release firmata per distribuzione pubblica.
 
@@ -25,8 +28,9 @@ Per trovarlo: aprire Actions nel repository, scegliere il workflow e l'esecuzion
 - Maps, Waze e ricerca web si aprono come app/servizi esterni. Non vengono inviati messaggi né avviate chiamate autonomamente.
 
 ## Roadmap
-1. Compilare l'APK e testare microfono, TTS e meteo sul Redmi 15C.
-2. Collaudare GPS nativo su richiesta, permessi e comportamento in ambienti senza segnale.
+1. Verificare che GitHub Actions completi `assembleDebug` e pubblichi l'artefatto APK.
+2. Installare l'APK sul Redmi 15C e testare microfono, TTS, meteo e permessi GPS su richiesta.
+3. Collaudare il comportamento della posizione in ambienti senza segnale e verificare che i permessi possano essere negati senza bloccare l'app.
 3. Misurare memoria, tempi e batteria prima di integrare un modello IA locale.
 4. Valutare LiteRT-LM con un modello compatto scaricato solo su richiesta, mai incluso nell'APK e mai scaricato automaticamente senza conferma.
 5. Progettare separatamente l'integrazione con Android Auto rispettando le categorie e le regole di Google.
