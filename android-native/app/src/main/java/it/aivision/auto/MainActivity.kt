@@ -450,7 +450,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener, SensorEventListene
                     manager.requestLocationUpdates(provider, 1000L, 1f, listener, mainLooper)
                     requested++
                     val cached = manager.getLastKnownLocation(provider)
-                    if (cached != null && (latestLocationAccuracy == null || cached.time > 0L)) {
+                    if (cached != null && cached.time > 0L && System.currentTimeMillis() >= cached.time && System.currentTimeMillis() - cached.time < 30_000L) {
                         lastSpeedKmh = if (cached.hasSpeed()) (cached.speed * 3.6f).coerceAtLeast(0f) else null
                         lastGpsBearing = if (cached.hasBearing() && cached.hasSpeed() && cached.speed > 1.5f) cached.bearing else null
                         latestLocationAccuracy = if (cached.hasAccuracy()) cached.accuracy else null
