@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071426">
+  <meta name="description" content="AIVision Auto: dashboard mobile essenziale con comandi vocali, navigazione, meteo e audio.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <title>AIVision Auto</title>
+  <style>
+    :root{color-scheme:dark;--bg:#06101e;--panel:#0d1d31;--panel2:#112740;--line:#223a55;--text:#f3f7fc;--muted:#a3b4c9;--blue:#4b9cff;--cyan:#65e0e2;--amber:#ffc86c;--radius:22px}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 10% -10%,#163a5d 0,transparent 42%),linear-gradient(180deg,#08172a 0%,var(--bg) 72%);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom)}
+    button,input{font:inherit}button{touch-action:manipulation;cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
+    .app{width:min(100%,780px);margin:0 auto;padding:12px 0 26px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:4px 2px 14px}.brand{display:flex;align-items:center;gap:10px;min-width:0}.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,#2875c6,#14395f);display:grid;place-items:center;font-size:23px;box-shadow:0 8px 24px #0005}.brand h1{font-size:17px;line-height:1.05;margin:0;letter-spacing:.11em}.brand p{font-size:10px;letter-spacing:.15em;color:var(--muted);margin:5px 0 0}.badge{white-space:nowrap;border:1px solid #2b4a68;color:#c5e1ff;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:800;letter-spacing:.08em;background:#102743}
+    .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-bottom:12px}.clock-card,.weather-card,.voice-card,.destination-card,.tile,.statusbar,.notice{border:1px solid var(--line);background:linear-gradient(145deg,#10243aeb,#0a1929f5);border-radius:var(--radius);box-shadow:0 10px 30px #0002}.clock-card{padding:17px 16px;min-height:143px}.eyebrow{font-size:10px;letter-spacing:.16em;font-weight:800;text-transform:uppercase;color:var(--muted)}.clock{font-size:clamp(39px,11vw,61px);font-variant-numeric:tabular-nums;font-weight:750;line-height:1.07;letter-spacing:-.06em;margin:8px 0 4px}.date{font-size:12px;color:#c7d5e7;text-transform:capitalize}.weather-card{padding:15px;display:flex;flex-direction:column;justify-content:space-between;min-height:143px}.weather-main{display:flex;align-items:center;gap:8px}.weather-icon{font-size:31px}.temp{font-size:33px;font-weight:750;letter-spacing:-.05em}.weather-location{font-size:12px;color:var(--muted);overflow-wrap:anywhere;margin-top:5px}.text-button{color:#b6dcff;border:0;background:none;text-align:left;font-size:12px;padding:9px 0 0;min-height:35px;font-weight:700}
+    .notice{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;margin:12px 0;border-color:#594a2e;background:#211d16}.notice .symbol{font-size:18px}.notice p{padding:0;margin:0;font-size:12px;line-height:1.45;color:#f2d6a4}.section-title{display:flex;align-items:center;justify-content:space-between;margin:19px 3px 10px}.section-title h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin:0;color:#bfd0e4}.section-title span{font-size:10px;color:var(--muted)}
+    .voice-card{padding:15px;display:flex;gap:12px;align-items:center;background:linear-gradient(110deg,#123d68,#10253e);border-color:#2e6597;margin-top:12px}.mic-button{border:0;border-radius:18px;background:linear-gradient(145deg,#69b6ff,#3787ee);color:#06182b;min-width:74px;width:74px;height:74px;display:grid;place-items:center;font-size:32px;box-shadow:0 8px 25px #347fd34c}.voice-copy{flex:1;min-width:0}.voice-copy h2{margin:0 0 5px;font-size:17px}.voice-copy p{margin:0;color:#ccdef1;font-size:12px;line-height:1.45}.voice-state{color:var(--cyan)!important;font-weight:750;margin-top:5px!important;min-height:18px}.stop-button{border:1px solid #4b6887;border-radius:12px;min-width:42px;height:42px;color:white;background:#0b1f34;font-weight:800}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.tile{position:relative;min-height:110px;padding:15px;border-radius:20px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;color:var(--text);border-color:#24415f;transition:filter .12s,transform .12s}.tile:active{transform:scale(.985);filter:brightness(1.18)}.tile-icon{width:43px;height:43px;border-radius:14px;background:#17395a;display:grid;place-items:center;font-size:23px;margin-bottom:10px}.tile strong{font-size:15px;line-height:1.2}.tile small{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}.tile.primary{background:linear-gradient(135deg,#124b80,#103050);border-color:#346da1}.tile.cyan .tile-icon{background:#153f48}.tile.amber .tile-icon{background:#47351e}.tile.green .tile-icon{background:#174335}
+    .destination-card{padding:14px;margin-top:12px}.field-label{font-size:11px;color:var(--muted);display:block;margin:0 0 7px 2px}.input-row{display:flex;gap:8px}.destination-input{width:100%;min-width:0;background:#061321;color:white;border:1px solid #2a4562;border-radius:13px;padding:13px 12px;font-size:15px}.action-button{border:0;border-radius:13px;padding:0 16px;min-height:48px;background:#4b9cff;color:#07182a;font-weight:850;white-space:nowrap}.saved-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.small-action{border:1px solid #2a4662;background:#0b1b2c;color:#cde3fa;border-radius:12px;padding:10px 12px;min-height:42px;font-size:12px;font-weight:750}.footer{color:#758da8;font-size:10px;line-height:1.5;text-align:center;padding:18px 12px 4px}.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:max-content;max-width:90vw;padding:12px 16px;background:#e8f4ff;color:#07172a;border-radius:14px;font-size:13px;font-weight:700;box-shadow:0 8px 30px #0006;display:none;z-index:10}.toast.show{display:block}
+    @media(min-width:600px){body{padding-left:22px;padding-right:22px}.app{padding-top:18px}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.tile{min-height:126px}.clock-card,.weather-card{min-height:160px}.hero{gap:14px}}
+    @media(max-width:360px){.hero{grid-template-columns:1fr}.clock-card{min-height:115px}.weather-card{min-height:120px}.grid{gap:8px}.tile{padding:12px;min-height:105px}.voice-card{padding:11px;gap:9px}.mic-button{width:62px;min-width:62px;height:62px}.badge{font-size:9px;padding:6px 8px}}
+    @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand"><div class="logo" aria-hidden="true">✦</div><div><h1>AIVISION AUTO</h1><p>IL TUO CO-PILOTA DIGITALE</p></div></div>
+      <span class="badge">BETA 0.1</span>
+    </header>
+    <section class="hero" aria-label="Ora e meteo">
+      <div class="clock-card"><div class="eyebrow">Ora locale</div><div id="clock" class="clock">--:--</div><div id="date" class="date">Preparazione...</div></div>
+      <div class="weather-card"><div><div class="eyebrow">Meteo</div><div class="weather-main"><span id="weatherIcon" class="weather-icon" aria-hidden="true">🌤️</span><div><div id="temperature" class="temp">--°</div><div id="weatherDesc" class="weather-location">Imposta una città</div></div></div><div id="weatherExtra" class="weather-location">Previsioni gratuite</div></div><button id="weatherCityButton" class="text-button">⌖ Imposta città / aggiorna</button></div>
+    </section>
+    <div class="notice"><span class="symbol" aria-hidden="true">⚠️</span><p><strong>Guida sicura:</strong> imposta destinazioni e preferenze prima di partire. Durante la marcia usa soltanto comandi vocali e lascia che sia il passeggero a interagire con lo schermo.</p></div>
+    <section class="voice-card" aria-label="Assistente vocale">
+      <button id="micButton" class="mic-button" aria-label="Avvia assistente vocale">🎙</button>
+      <div class="voice-copy"><h2>Parla con AIVision</h2><p>Prova: «Naviga verso Torino», «Che ore sono?», «Apri la musica».</p><p id="voiceState" class="voice-state" aria-live="polite">Assistente pronto</p></div>
+      <button id="stopVoice" class="stop-button" aria-label="Ferma ascolto vocale">■</button>
+    </section>
+    <div class="section-title"><h2>Accesso rapido</h2><span>TOCCA O USA LA VOCE</span></div>
+    <section class="grid" aria-label="Funzioni principali">
+      <button class="tile primary" id="navButton"><span class="tile-icon">➤</span><strong>Navigazione</strong><small>Indicazioni con Google Maps</small></button>
+      <button class="tile" id="callButton"><span class="tile-icon">☎</span><strong>Telefono</strong><small>Apri il tastierino del telefono</small></button>
+      <button class="tile cyan" id="musicButton"><span class="tile-icon">♫</span><strong>Musica</strong><small>Apri il tuo servizio musicale</small></button>
+      <button class="tile cyan" id="radioButton"><span class="tile-icon">📻</span><strong>Radio online</strong><small>Ascolto tramite Radio Garden</small></button>
+      <button class="tile green" id="messageButton"><span class="tile-icon">✉</span><strong>Messaggi</strong><small>Prepara un SMS, senza invio automatico</small></button>
+      <button class="tile amber" id="searchButton"><span class="tile-icon">⌕</span><strong>Cerca sul Web</strong><small>Apri una ricerca in una nuova pagina</small></button>
+    </section>
+    <section class="destination-card" aria-label="Destinazione">
+      <label for="destination" class="field-label">DOVE VUOI ANDARE?</label>
+      <div class="input-row"><input id="destination" class="destination-input" autocomplete="street-address" placeholder="Città, indirizzo o luogo"><button id="goButton" class="action-button">VAI ↗</button></div>
+      <div class="saved-row"><button id="homeSaveButton" class="small-action">⌂ Salva destinazione Casa</button><button id="homeNavButton" class="small-action">↗ Vai a Casa</button><button id="readHelpButton" class="small-action">? Comandi vocali</button></div>
+    </section>
+    <footer class="footer">AIVision Auto v0.1 · prototipo gratuito · nessun account o chiave API richiesti.<br>Il riconoscimento vocale dipende dal browser e dal servizio di sistema, e potrebbe usare Internet. Meteo: Open-Meteo. Questa beta non sostituisce un navigatore o i sistemi di sicurezza dell'auto.</footer>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
