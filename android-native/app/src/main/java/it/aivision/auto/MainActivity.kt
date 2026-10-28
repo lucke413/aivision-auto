@@ -7,6 +7,10 @@ import android.location.LocationManager
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.res.Configuration
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
@@ -22,6 +26,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
+import android.view.Surface
 import android.view.View
 import android.widget.*
 import org.json.JSONObject
@@ -33,7 +38,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 
-class MainActivity : Activity(), TextToSpeech.OnInitListener {
+class MainActivity : Activity(), TextToSpeech.OnInitListener, SensorEventListener {
     private val bg = Color.rgb(6, 16, 30)
     private val panel = Color.rgb(14, 31, 50)
     private val blue = Color.rgb(75, 156, 255)
@@ -52,12 +57,25 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private val prefs by lazy { getSharedPreferences("aivision-auto", MODE_PRIVATE) }
     private val city get() = prefs.getString("city", "Novara") ?: "Novara"
     private val home get() = prefs.getString("home", "") ?: ""
+    private lateinit var speedGauge: InstrumentGauge
+    private lateinit var headingGauge: InstrumentGauge
+    private lateinit var instrumentStatus: TextView
+    private lateinit var sensorManager: SensorManager
+    private var rotationSensor: Sensor? = null
+    private var instrumentGpsEnabled = false
+    private var locationListener: LocationListener? = null
+    private var lastSpeedKmh: Float? = null
+    private var lastGpsBearing: Float? = null
+    private var compassHeading: Float? = null
+    private var latestLocationAccuracy: Float? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         tts = TextToSpeech(this, this)
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
         val scroll = ScrollView(this).apply {
             setBackgroundColor(bg)
@@ -123,6 +141,23 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         weatherLine.addView(actionButton("↻  Meteo", true) { loadWeather(false) })
         hero.addView(weatherLine)
         hero.addView(actionButton("⚙  Imposta città", true) { chooseCity() })
+
+        val instrumentCard = card(dashboard)
+        instrumentCard.addView(label("STRUMENTI DI BORDO", 11f, blue, true))
+        instrumentCard.addView(label("Velocità GPS e direzione · non dati della centralina", 11f, muted))
+        val gaugeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        speedGauge = InstrumentGauge(this, false)
+        headingGauge = InstrumentGauge(this, true)
+        gaugeRow.addView(speedGauge, LinearLayout.LayoutParams(0, dp(188), 1f))
+        gaugeRow.addView(headingGauge, LinearLayout.LayoutParams(0, dp(188), 1f))
+        instrumentCard.addView(gaugeRow)
+        instrumentStatus = label("GPS non attivo · attivalo prima di partire", 11f, muted)
+        instrumentCard.addView(instrumentStatus)
+        instrumentCard.addView(actionButton("⌖  ATTIVA GPS", true) { activateGps() })
+        updateInstrumentGauges()
 
         val voice = card(controls)
         voice.addView(label("ASSISTENTE VOCALE", 11f, blue, true))
@@ -328,6 +363,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         else if (requestCode == 41) respond("Senza il permesso microfono non posso ascoltare.", false)
         else if (requestCode == 42 && grantResults.any { it == PackageManager.PERMISSION_GRANTED }) locateMe()
         else if (requestCode == 42) respond("Senza il permesso posizione non posso localizzarti.", false)
+        else if (requestCode == 43) {
+            if (grantResults.any { it == PackageManager.PERMISSION_GRANTED }) {
+                instrumentGpsEnabled = true
+                startLocationTracking()
+                respond("Posizione autorizzata. Avvio gli strumenti GPS.", false)
+            } else {
+                if (::instrumentStatus.isInitialized) instrumentStatus.text = "Permesso posizione negato"
+                respond("Per mostrare la velocità GPS devi consentire la posizione.", false)
+            }
+        }
     }
     private fun normalize(value: String) = value.lowercase(Locale.ITALIAN)
         .replace("à", "a").replace("è", "e").replace("é", "e").replace("ì", "i").replace("ò", "o").replace("ù", "u")
@@ -362,6 +407,127 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             else -> respond("Ho capito: “$raw”. Per ora gestisco data, ora, meteo, navigazione e ricerche locali. L'IA conversazionale arriverà in una fase successiva.")
         }
     }
+
+    private fun activateGps() {
+        val fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!fine && !coarse) {
+            requestPermissions(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                43
+            )
+            return
+        }
+        instrumentGpsEnabled = true
+        startLocationTracking()
+        respond("Strumenti GPS attivati. È una stima del telefono, non il tachimetro dell'auto.", false)
+    }
+
+    private fun startLocationTracking() {
+        if (!instrumentGpsEnabled || isFinishing) return
+        val fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!fine && !coarse) return
+        val manager = getSystemService(LOCATION_SERVICE) as LocationManager
+        stopLocationUpdates()
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                lastSpeedKmh = if (location.hasSpeed()) (location.speed * 3.6f).coerceAtLeast(0f) else null
+                lastGpsBearing = if (location.hasBearing() && location.hasSpeed() && location.speed > 1.5f) location.bearing else null
+                latestLocationAccuracy = if (location.hasAccuracy()) location.accuracy else null
+                updateInstrumentGauges()
+            }
+            @Deprecated("Deprecated by Android")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+            override fun onProviderEnabled(provider: String) { updateInstrumentGauges() }
+            override fun onProviderDisabled(provider: String) { updateInstrumentGauges() }
+        }
+        locationListener = listener
+        var requested = 0
+        for (provider in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+            try {
+                if (manager.isProviderEnabled(provider)) {
+                    manager.requestLocationUpdates(provider, 1000L, 1f, listener, mainLooper)
+                    requested++
+                    val cached = manager.getLastKnownLocation(provider)
+                    if (cached != null && (latestLocationAccuracy == null || cached.time > 0L)) {
+                        lastSpeedKmh = if (cached.hasSpeed()) (cached.speed * 3.6f).coerceAtLeast(0f) else null
+                        lastGpsBearing = if (cached.hasBearing() && cached.hasSpeed() && cached.speed > 1.5f) cached.bearing else null
+                        latestLocationAccuracy = if (cached.hasAccuracy()) cached.accuracy else null
+                    }
+                }
+            } catch (_: SecurityException) {
+            } catch (_: Exception) {
+            }
+        }
+        instrumentStatus.text = if (requested == 0) {
+            "Posizione disattivata: attivala nelle impostazioni del telefono"
+        } else {
+            "Ricerca posizione GPS… attendi il segnale"
+        }
+        updateInstrumentGauges()
+    }
+
+    private fun stopLocationUpdates() {
+        try {
+            val manager = getSystemService(LOCATION_SERVICE) as LocationManager
+            locationListener?.let { manager.removeUpdates(it) }
+        } catch (_: Exception) {
+        }
+        locationListener = null
+    }
+
+    private fun updateInstrumentGauges() {
+        if (!::speedGauge.isInitialized || !::headingGauge.isInitialized) return
+        val speed = lastSpeedKmh
+        speedGauge.setReading(
+            speed?.let { String.format(Locale.ITALY, "%.0f", it) } ?: "—",
+            "km/h",
+            if (speed == null) 0f else (speed / 180f).coerceIn(0f, 1f)
+        )
+        val heading = compassHeading ?: lastGpsBearing
+        val direction = heading?.let { directionFor(it) } ?: "DIREZIONE"
+        headingGauge.setReading(
+            heading?.let { String.format(Locale.ITALY, "%.0f°", it) } ?: "—°",
+            direction,
+            0f,
+            heading ?: 0f
+        )
+        if (::instrumentStatus.isInitialized) {
+            instrumentStatus.text = when {
+                !instrumentGpsEnabled -> "GPS non attivo · attivalo prima di partire"
+                latestLocationAccuracy == null -> "Ricerca GPS… attendi il segnale"
+                else -> "GPS attivo · precisione indicativa ±" + latestLocationAccuracy!!.toInt() + " m"
+            }
+        }
+    }
+
+    private fun directionFor(degrees: Float): String {
+        val directions = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+        val index = (((degrees % 360f + 360f) % 360f) / 45f + 0.5f).toInt() % 8
+        return directions[index]
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event == null || event.sensor.type != Sensor.TYPE_ROTATION_VECTOR) return
+        val matrix = FloatArray(9)
+        val remapped = FloatArray(9)
+        val orientation = FloatArray(3)
+        SensorManager.getRotationMatrixFromVector(matrix, event.values)
+        val axes = when (windowManager.defaultDisplay.rotation) {
+            Surface.ROTATION_90 -> Pair(SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X)
+            Surface.ROTATION_180 -> Pair(SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Y)
+            Surface.ROTATION_270 -> Pair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X)
+            else -> Pair(SensorManager.AXIS_X, SensorManager.AXIS_Y)
+        }
+        if (SensorManager.remapCoordinateSystem(matrix, axes.first, axes.second, remapped)) {
+            SensorManager.getOrientation(remapped, orientation)
+            compassHeading = (Math.toDegrees(orientation[0].toDouble()).toFloat() + 360f) % 360f
+            updateInstrumentGauges()
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun locateMe() {
         val fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -487,6 +653,18 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         try { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
         catch (_: Exception) { Toast.makeText(this, "Nessuna app compatibile disponibile.", Toast.LENGTH_LONG).show() }
     }
+    override fun onResume() {
+        super.onResume()
+        rotationSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+        if (instrumentGpsEnabled) startLocationTracking()
+    }
+
+    override fun onPause() {
+        stopLocationUpdates()
+        if (::sensorManager.isInitialized) sensorManager.unregisterListener(this)
+        super.onPause()
+    }
+
     override fun onDestroy() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -495,6 +673,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         } catch (_: Exception) {}
         defaultNetworkCallback = null
+        stopLocationUpdates()
         stopListening(); tts?.stop(); tts?.shutdown(); worker.shutdownNow()
         super.onDestroy()
     }
