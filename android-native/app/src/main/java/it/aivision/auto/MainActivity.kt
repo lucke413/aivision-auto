@@ -13,6 +13,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -56,61 +57,112 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         window.statusBarColor = bg
         window.navigationBarColor = bg
         tts = TextToSpeech(this, this)
-        val scroll = ScrollView(this).apply { setBackgroundColor(bg); isFillViewport = true }
+
+        val scroll = ScrollView(this).apply {
+            setBackgroundColor(bg)
+            isFillViewport = true
+            clipToPadding = false
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(18), dp(16), dp(24))
+            setPadding(dp(16), dp(14), dp(16), dp(24))
         }
         scroll.addView(root)
         setContentView(scroll)
 
-        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        header.addView(label("✦ AIVISION AUTO", 20f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
-        header.addView(label("BETA NATIVA", 10f, blue, true))
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(4))
+        }
+        val brand = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        brand.addView(label("✦ AIVISION", 23f, white, true))
+        brand.addView(label("IL TUO CO-PILOTA DIGITALE", 10f, muted, true))
+        header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(label("NATIVE BETA", 10f, blue, true).apply {
+            setPadding(dp(10), dp(7), dp(10), dp(7))
+            background = roundedBackground(Color.rgb(18, 49, 81), 14)
+        })
         root.addView(header)
-        root.addView(label("IL TUO CO-PILOTA DIGITALE", 10f, muted, true))
 
         val hero = card(root)
-        hero.addView(label("ORA LOCALE", 10f, blue, true))
-        clock = label("--:--", 54f, white, true)
-        date = label("Preparazione…", 14f, muted)
-        hero.addView(clock); hero.addView(date); hero.addView(space(12))
-        cityLabel = label("METEO · $city", 12f, muted, true)
-        weather = label("Controllo previsioni…", 16f, white)
-        hero.addView(cityLabel); hero.addView(weather)
-        hero.addView(actionButton("Aggiorna meteo / cambia città") { chooseCity() })
-
-        val warning = label("⚠ Guida sicura: configura tutto prima di partire. Durante la marcia privilegia la voce; non interagire con lo schermo mentre guidi.", 13f, Color.rgb(245, 211, 156))
-        warning.setPadding(dp(12), dp(12), dp(12), dp(12)); warning.setBackgroundColor(Color.rgb(40, 34, 24))
-        root.addView(warning)
+        hero.addView(label("LA TUA PLANCIA", 10f, blue, true))
+        clock = label("--:--", 58f, white, true).apply {
+            includeFontPadding = false
+            setPadding(0, dp(2), 0, 0)
+        }
+        date = label("Preparazione…", 15f, muted)
+        hero.addView(clock)
+        hero.addView(date)
+        hero.addView(space(14))
+        val weatherLine = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val weatherTexts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        cityLabel = label("METEO · $city", 11f, muted, true)
+        weather = label("Controllo previsioni…", 17f, white, true)
+        weatherTexts.addView(cityLabel)
+        weatherTexts.addView(weather)
+        weatherLine.addView(weatherTexts, LinearLayout.LayoutParams(0, -2, 1f))
+        weatherLine.addView(actionButton("↻  Meteo", true) { loadWeather(false) })
+        hero.addView(weatherLine)
+        hero.addView(actionButton("⚙  Imposta città", true) { chooseCity() })
 
         val voice = card(root)
         voice.addView(label("ASSISTENTE VOCALE", 11f, blue, true))
-        voice.addView(label("Prova: «che giorno è?», «meteo a Novara», «naviga a casa», «trova un distributore».", 14f, muted))
-        voice.addView(actionButton("🎙  PARLA CON AIVISION") { startListening() })
-        response = label("Pronto. I comandi essenziali vengono gestiti localmente.", 15f, white)
+        voice.addView(label("Comanda a voce: navigazione, meteo, ricerche e posizione.", 14f, muted))
+        val voiceButton = actionButton("🎙   PARLA CON AIVISION") { startListening() }.apply {
+            textSize = 17f
+            minHeight = dp(68)
+            background = roundedBackground(Color.rgb(23, 99, 170), 18)
+        }
+        voice.addView(voiceButton)
+        response = label("Pronto. Tocca il microfono oppure scegli un comando qui sotto.", 14f, white).apply {
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = roundedBackground(Color.rgb(9, 24, 40), 14)
+        }
+        voice.addView(space(5))
         voice.addView(response)
 
-        root.addView(label("ACCESSO RAPIDO", 11f, muted, true))
+        root.addView(label("COMANDI RAPIDI", 12f, muted, true).apply {
+            setPadding(dp(2), dp(8), 0, dp(4))
+        })
         val actions = listOf<Pair<String, () -> Unit>>(
-            "Naviga" to { askDestination() }, "Torna a casa" to { if (home.isBlank()) chooseHome() else navigate(home) },
-            "Distributori" to { mapsSearch("distributore carburante vicino a me") }, "Parcheggi" to { mapsSearch("parcheggio vicino a me") },
-            "Farmacie" to { mapsSearch("farmacia vicino a me") }, "Dove sono?" to { locateMe() }, "Cerca sul web" to { askSearch() },
-            "Imposta Casa" to { chooseHome() }, "Imposta città" to { chooseCity() }
+            "🧭  Naviga" to { askDestination() },
+            "🏠  Vai a Casa" to { if (home.isBlank()) chooseHome() else navigate(home) },
+            "⛽  Carburante" to { mapsSearch("distributore carburante vicino a me") },
+            "🅿️  Parcheggi" to { mapsSearch("parcheggio vicino a me") },
+            "💊  Farmacie" to { mapsSearch("farmacia vicino a me") },
+            "📍  Dove sono" to { locateMe() },
+            "🔎  Cerca sul web" to { askSearch() },
+            "🏡  Imposta Casa" to { chooseHome() }
         )
         actions.chunked(2).forEach { pair ->
-            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            pair.forEach { item ->
-                val b = actionButton(item.first, true, item.second)
-                val lp = LinearLayout.LayoutParams(0, dp(62), 1f); lp.setMargins(dp(3), dp(3), dp(3), dp(3))
-                line.addView(b, lp)
+            val line = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
             }
-            if (pair.size == 1) line.addView(View(this), LinearLayout.LayoutParams(0, dp(62), 1f))
+            pair.forEach { item ->
+                val button = actionButton(item.first, true, item.second).apply {
+                    textSize = 14f
+                    minHeight = dp(66)
+                    gravity = Gravity.CENTER
+                }
+                val lp = LinearLayout.LayoutParams(0, dp(70), 1f)
+                lp.setMargins(dp(4), dp(4), dp(4), dp(4))
+                line.addView(button, lp)
+            }
             root.addView(line)
         }
-        root.addView(label("Offline-first · nessun account · nessun abbonamento obbligatorio\nMeteo aggiornato via Open-Meteo quando c’è rete.", 10f, muted).apply {
-            gravity = Gravity.CENTER; setPadding(dp(8), dp(20), dp(8), 0)
+        root.addView(label(
+            "Offline-first · i dati online si aggiornano quando Internet è disponibile.\nConfigura tutto prima di partire; durante la guida usa soprattutto la voce.",
+            10f, muted
+        ).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(18), dp(8), 0)
         })
+
         updateClock()
         window.decorView.post(object : Runnable {
             override fun run() {
@@ -160,15 +212,32 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         text = value; textSize = size; setTextColor(color); setPadding(0, dp(5), 0, dp(5))
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
+    private fun roundedBackground(color: Int, radiusDp: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(color)
+        cornerRadius = dp(radiusDp).toFloat()
+    }
     private fun card(root: LinearLayout) = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(16), dp(16), dp(16)); setBackgroundColor(panel)
-        val lp = LinearLayout.LayoutParams(-1, -2); lp.setMargins(0, dp(8), 0, dp(8))
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(16), dp(16), dp(16), dp(16))
+        background = roundedBackground(panel, 22)
+        elevation = dp(2).toFloat()
+        val lp = LinearLayout.LayoutParams(-1, -2)
+        lp.setMargins(0, dp(8), 0, dp(8))
         root.addView(this, lp)
     }
     private fun actionButton(value: String, small: Boolean = false, action: () -> Unit) = Button(this).apply {
-        text = value; textSize = if (small) 12f else 14f; isAllCaps = false
-        setTextColor(white); setBackgroundColor(if (small) Color.rgb(22, 47, 72) else Color.rgb(24, 69, 112))
-        minHeight = dp(if (small) 52 else 48); setOnClickListener { action() }
+        text = value
+        textSize = if (small) 13f else 15f
+        isAllCaps = false
+        setTextColor(white)
+        setPadding(dp(12), dp(8), dp(12), dp(8))
+        minHeight = dp(if (small) 56 else 60)
+        background = roundedBackground(
+            if (small) Color.rgb(24, 53, 80) else Color.rgb(24, 82, 139),
+            if (small) 16 else 18
+        )
+        setOnClickListener { action() }
     }
     private fun space(height: Int) = View(this).apply { layoutParams = LinearLayout.LayoutParams(1, dp(height)) }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
