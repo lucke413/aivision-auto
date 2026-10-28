@@ -6,6 +6,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.res.Configuration
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
@@ -63,12 +64,26 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             isFillViewport = true
             clipToPadding = false
         }
+        val wide = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
+            resources.configuration.screenWidthDp >= 600
         val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(24))
+            orientation = if (wide) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            setPadding(dp(14), dp(10), dp(14), dp(16))
         }
         scroll.addView(root)
         setContentView(scroll)
+
+        val dashboard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        if (wide) {
+            dashboard.setPadding(0, 0, dp(8), 0)
+            controls.setPadding(dp(8), 0, 0, 0)
+            root.addView(dashboard, LinearLayout.LayoutParams(0, -2, 0.96f))
+            root.addView(controls, LinearLayout.LayoutParams(0, -2, 1.04f))
+        } else {
+            root.addView(dashboard, LinearLayout.LayoutParams(-1, -2))
+            root.addView(controls, LinearLayout.LayoutParams(-1, -2))
+        }
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -83,9 +98,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             setPadding(dp(10), dp(7), dp(10), dp(7))
             background = roundedBackground(Color.rgb(18, 49, 81), 14)
         })
-        root.addView(header)
+        dashboard.addView(header)
 
-        val hero = card(root)
+        val hero = card(dashboard)
         hero.addView(label("LA TUA PLANCIA", 10f, blue, true))
         clock = label("--:--", 58f, white, true).apply {
             includeFontPadding = false
@@ -109,7 +124,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         hero.addView(weatherLine)
         hero.addView(actionButton("⚙  Imposta città", true) { chooseCity() })
 
-        val voice = card(root)
+        val voice = card(controls)
         voice.addView(label("ASSISTENTE VOCALE", 11f, blue, true))
         voice.addView(label("Comanda a voce: navigazione, meteo, ricerche e posizione.", 14f, muted))
         val voiceButton = actionButton("🎙   PARLA CON AIVISION") { startListening() }.apply {
@@ -125,7 +140,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         voice.addView(space(5))
         voice.addView(response)
 
-        root.addView(label("COMANDI RAPIDI", 12f, muted, true).apply {
+        controls.addView(label("COMANDI RAPIDI", 12f, muted, true).apply {
             setPadding(dp(2), dp(8), 0, dp(4))
         })
         val actions = listOf<Pair<String, () -> Unit>>(
@@ -153,9 +168,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 lp.setMargins(dp(4), dp(4), dp(4), dp(4))
                 line.addView(button, lp)
             }
-            root.addView(line)
+            controls.addView(line)
         }
-        root.addView(label(
+        controls.addView(label(
             "Offline-first · i dati online si aggiornano quando Internet è disponibile.\nConfigura tutto prima di partire; durante la guida usa soprattutto la voce.",
             10f, muted
         ).apply {
