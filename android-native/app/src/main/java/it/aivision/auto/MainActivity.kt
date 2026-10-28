@@ -197,6 +197,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 41 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startListening()
         else if (requestCode == 41) respond("Senza il permesso microfono non posso ascoltare.", false)
+        else if (requestCode == 42 && grantResults.any { it == PackageManager.PERMISSION_GRANTED }) locateMe()
+        else if (requestCode == 42) respond("Senza il permesso posizione non posso localizzarti.", false)
     }
     private fun normalize(value: String) = value.lowercase(Locale.ITALIAN)
         .replace("à", "a").replace("è", "e").replace("é", "e").replace("ì", "i").replace("ò", "o").replace("ù", "u")
