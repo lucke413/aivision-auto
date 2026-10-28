@@ -8,6 +8,9 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
@@ -42,6 +45,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var cityLabel: TextView
     private var tts: TextToSpeech? = null
     private var recognizer: SpeechRecognizer? = null
+    private var defaultNetworkCallback: ConnectivityManager.NetworkCallback? = null
+    @Volatile private var networkWasUnavailable = false
     private val prefs by lazy { getSharedPreferences("aivision-auto", MODE_PRIVATE) }
     private val city get() = prefs.getString("city", "Novara") ?: "Novara"
     private val home get() = prefs.getString("home", "") ?: ""
@@ -114,7 +119,41 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 window.decorView.postDelayed(this, 30_000)
             }
         })
+        monitorConnectivity()
         loadWeather(false)
+    }
+
+    /** Android selects Wi-Fi or mobile data automatically when that network is enabled by the user. */
+    private fun monitorConnectivity() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        val manager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val active = manager.activeNetwork
+        val activeCaps = active?.let { manager.getNetworkCapabilities(it) }
+        networkWasUnavailable = activeCaps == null || !activeCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onLost(network: Network) {
+                val current = manager.activeNetwork
+                val caps = current?.let { manager.getNetworkCapabilities(it) }
+                if (caps == null || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                    networkWasUnavailable = true
+                }
+            }
+            override fun onAvailable(network: Network) {
+                val caps = manager.getNetworkCapabilities(network)
+                if (caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true && networkWasUnavailable) {
+                    networkWasUnavailable = false
+                    runOnUiThread {
+                        if (!isFinishing) {
+                            response.text = "Connessione Internet disponibile: aggiorno automaticamente i dati online."
+                            loadWeather(false)
+                        }
+                    }
+                }
+            }
+        }
+        defaultNetworkCallback = callback
+        try { manager.registerDefaultNetworkCallback(callback) }
+        catch (_: Exception) { defaultNetworkCallback = null }
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
@@ -359,6 +398,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         catch (_: Exception) { Toast.makeText(this, "Nessuna app compatibile disponibile.", Toast.LENGTH_LONG).show() }
     }
     override fun onDestroy() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val manager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+                defaultNetworkCallback?.let { manager.unregisterNetworkCallback(it) }
+            }
+        } catch (_: Exception) {}
+        defaultNetworkCallback = null
         stopListening(); tts?.stop(); tts?.shutdown(); worker.shutdownNow()
         super.onDestroy()
     }
