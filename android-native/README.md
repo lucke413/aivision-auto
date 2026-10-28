@@ -9,6 +9,7 @@ Questa cartella contiene il primo progetto Android nativo, separato dalla PWA gi
 - Comandi vocali a pressione singola. Se disponibile, viene preferito il riconoscimento on-device; altrimenti il servizio vocale di sistema potrebbe richiedere Internet.
 - Comandi locali per data, ora, meteo, navigazione, casa, distributori, parcheggi, farmacie, traffico e autovelox.
 - Destinazione Casa, città e ultima destinazione salvate localmente.
+- Posizione GPS/rete su richiesta, con permesso Android esplicito e senza tracciamento continuo.
 - Nessun account, chiave API o pagamento obbligatorio.
 
 ## APK di prova
@@ -25,7 +26,7 @@ Per trovarlo: aprire Actions nel repository, scegliere il workflow e l'esecuzion
 
 ## Roadmap
 1. Compilare l'APK e testare microfono, TTS e meteo sul Redmi 15C.
-2. Integrare GPS nativo con permesso esplicito e posizione visibile solo quando serve.
+2. Collaudare GPS nativo su richiesta, permessi e comportamento in ambienti senza segnale.
 3. Misurare memoria, tempi e batteria prima di integrare un modello IA locale.
 4. Valutare LiteRT-LM con un modello compatto scaricato solo su richiesta, mai incluso nell'APK e mai scaricato automaticamente senza conferma.
 5. Progettare separatamente l'integrazione con Android Auto rispettando le categorie e le regole di Google.
